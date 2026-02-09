@@ -31,3 +31,6 @@ select customer_id,product_name from finalTable where rnk=1;
 -- 8. What is the total items and amount spent for each member before they became a member?
  with intermediateTable as (select m.customer_id,s.product_id,s.order_date-m.join_date as ordering_before_membership from members m join sales s on m.customer_id=s.customer_id where s.order_date<m.join_date)
 select customer_id,sum(m.price) as total_spent_amount,count(*) as total_items from intermediateTable i join menu m on i.product_id=m.product_id group by i.customer_id order by customer_id asc;
+
+-- 9.  If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
+select customer_id,sum(case when s.product_id=1 then 20*price else 10*price end) as spent_amt from sales s join menu m on s.product_id=m.product_id group by customer_id order by customer_id asc;
