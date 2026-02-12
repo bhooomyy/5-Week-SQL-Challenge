@@ -65,3 +65,15 @@ r.runner_id,
 round(avg(extract(epoch from (r.pickup_time::timestamp - c.order_time::timestamp))/60)) AS time_diff 
 from customer_orders c join runner_orders r on c.order_id=r.order_id 
 where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ' group by r.runner_id order by runner_id;
+
+--Is there any relationship between the number of pizzas and how long the order takes to prepare?
+with t as(
+select 
+c.order_id,
+count(c.order_id) as pizza_cnt,
+extract(epoch from (r.pickup_time::timestamp - c.order_time::timestamp))/60 AS avg_time 
+from customer_orders c join runner_orders r on c.order_id=r.order_id 
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ' and distance<>''
+group by c.order_id,c.order_time,r.pickup_time)
+select pizza_cnt,round(avg(avg_time),2) as avg_time from t group by pizza_cnt order by pizza_cnt;
+
