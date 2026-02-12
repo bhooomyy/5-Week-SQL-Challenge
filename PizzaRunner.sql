@@ -20,3 +20,7 @@ select count(*) from customer_orders;
 
 --How many unique customer orders were made?
 select count(distinct order_id) from customer_orders;
+
+--How many successful orders were delivered by each runner?
+select runner_id,count(*) as total_orders_delivered from runner_orders where duration  not like ' ' group by runner_id order by runner_id asc;
+
