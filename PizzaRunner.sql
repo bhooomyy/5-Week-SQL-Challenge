@@ -97,3 +97,13 @@ where duration = '' OR duration LIKE 'null';
 alter table runner_orders
 alter column duration type float using duration::float;
 select max(duration)-min(duration) as max_min_delivery_time_differance from 
+
+--What was the average speed for each runner for each delivery and do you notice any trend for these values?
+select 
+r.runner_id,
+r.order_id,
+round(avg(distance*60/duration)) as avg_speed_per_runner
+from runner_orders r join customer_orders c on r.order_id=c.order_id
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' '
+group by r.runner_id,r.pickup_time,c.order_time,r.order_id
+order by r.runner_id,r.order_id;
