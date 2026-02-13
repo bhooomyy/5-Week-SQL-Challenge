@@ -50,3 +50,68 @@ select extract(hour from order_time) as hour_of_day,count(order_id) as cnt_pizza
 
 --What was the volume of orders for each day of the week?
 select TO_CHAR(order_time, 'Day') as day_of_week,count(order_id) as cnt_pizza from customer_orders group by TO_CHAR(order_time, 'Day') order by cnt_pizza desc;
+
+
+
+--Queries 2
+--How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
+select extract(week from registration_date) as registration_week,count(runner_id) as cnt_runner from runners group by extract(week from registration_date) order by registration_week;
+
+--What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+--select order_time::timestamp from customer_orders;
+--select pickup_time::time from runner_orders where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ';
+select 
+r.runner_id,
+round(avg(extract(epoch from (r.pickup_time::timestamp - c.order_time::timestamp))/60)) AS time_diff 
+from customer_orders c join runner_orders r on c.order_id=r.order_id 
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ' group by r.runner_id order by runner_id;
+
+--Is there any relationship between the number of pizzas and how long the order takes to prepare?
+with t as(
+select 
+c.order_id,
+count(c.order_id) as pizza_cnt,
+extract(epoch from (r.pickup_time::timestamp - c.order_time::timestamp))/60 AS avg_time 
+from customer_orders c join runner_orders r on c.order_id=r.order_id 
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ' and distance<>''
+group by c.order_id,c.order_time,r.pickup_time)
+select pizza_cnt,round(avg(avg_time),2) as avg_time from t group by pizza_cnt order by pizza_cnt;
+
+
+--What was the average distance travelled for each customer?
+update runner_orders
+set distance=(case when distance='' then NULL else cast(distance as float) end);
+alter table runner_orders
+alter column distance type float using distance::float;
+select c.customer_id,round(avg(r.distance)) as avg_distance from customer_orders c  join runner_orders r on c.order_id=r.order_id group by customer_id order by customer_id;
+
+--What was the difference between the longest and shortest delivery times for all orders?
+/*select 
+c.order_id,
+round(extract(epoch from (r.pickup_time::timestamp - c.order_time::timestamp))/60,2) AS spent_time 
+from customer_orders c join runner_orders r on c.order_id=r.order_id
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ')*/
+update runner_orders
+set duration = null
+where duration = '' OR duration LIKE 'null';
+alter table runner_orders
+alter column duration type float using duration::float;
+select max(duration)-min(duration) as max_min_delivery_time_differance from 
+
+--What was the average speed for each runner for each delivery and do you notice any trend for these values?
+select 
+r.runner_id,
+r.order_id,
+round(avg(distance*60/duration)) as avg_speed_per_runner
+from runner_orders r join customer_orders c on r.order_id=c.order_id
+where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' '
+group by r.runner_id,r.pickup_time,c.order_time,r.order_id
+order by r.runner_id,r.order_id;
+
+--What is the successful delivery percentage for each runner?
+select 
+runner_id, 
+round(100 * sum(case when distance is null then 0 else 1 end) / count(*), 0) as success_perc
+from runner_orders
+group by runner_id
+order by runner_id;
