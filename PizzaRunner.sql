@@ -77,3 +77,11 @@ where pickup_time is not NULL and pickup_time <>'' and pickup_time<>' ' and dist
 group by c.order_id,c.order_time,r.pickup_time)
 select pizza_cnt,round(avg(avg_time),2) as avg_time from t group by pizza_cnt order by pizza_cnt;
 
+
+--What was the average distance travelled for each customer?
+update runner_orders
+set distance=(case when distance='' then NULL else cast(distance as float) end);
+alter table runner_orders
+alter column distance type float using distance::float;
+select c.customer_id,round(avg(r.distance)) as avg_distance from customer_orders c  join runner_orders r on c.order_id=r.order_id group by customer_id order by customer_id;
+
