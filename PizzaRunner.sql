@@ -115,3 +115,161 @@ round(100 * sum(case when distance is null then 0 else 1 end) / count(*), 0) as 
 from runner_orders
 group by runner_id
 order by runner_id;
+
+-- Queries 3
+--What are the standard ingredients for each pizza?
+create table pizza_recipes_normalized(
+"pizza_id" INT,
+"toppings" INT);
+
+insert into pizza_recipes_normalized(pizza_id,toppings)
+select pizza_id,cast(topping as int) as toppings
+from pizza_recipes,
+lateral unnest(string_to_array(toppings,', ')) as t(topping);
+
+select pizza_name,string_agg(pt.topping_name,', ')as topping_list from pizza_names pn join pizza_recipes_normalized prn on pn.pizza_id=prn.pizza_id join pizza_toppings pt on prn.toppings=pt.topping_id group by pn.pizza_name order by pn.pizza_name;
+
+
+--What was the most commonly added extra?
+create table order_extras(
+order_id int,
+extras int
+);
+insert into order_extras(order_id,extras)
+select c.order_id,x.extras::int from customer_orders c 
+join lateral unnest(string_to_array(c.extras,',')) as x(extras) on true 
+where c.extras is not null and c.extras<> '';
+
+select o.extras,pt.topping_name,count(o.extras) as common_extras 
+from order_extras o join pizza_toppings pt on o.extras=pt.topping_id 
+group by o.extras,pt.topping_name 
+order by common_extras desc;
+
+--What was the most common exclusion?
+create table order_exclusions(
+order_id int,
+exclusions int
+);
+insert into order_exclusions(order_id,exclusions)
+select c.order_id,e.exclusion::int from customer_orders c 
+join lateral unnest(string_to_array(c.exclusions,',')) as e(exclusion) on true 
+where c.exclusions is not null and c.exclusions<> '';
+
+select o.exclusions,pt.topping_name,count(o.exclusions) as common_exclusions 
+from order_exclusions o join pizza_toppings pt on o.exclusions=pt.topping_id 
+group by o.exclusions,pt.topping_name order by common_exclusions desc;
+
+
+/*Generate an order item for each record in the customers_orders table in the format of one of the following:
+Meat Lovers
+Meat Lovers - Exclude Beef
+Meat Lovers - Extra Bacon
+Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers*/
+select c.order_id,
+c.pizza_id,
+exclusions,
+extras,
+(case when c.pizza_id=1 and exclusions like '2, 6' and extras like '1, 4' then 'Meat Lovers - Exclude BBQ Sauce, Mushrooms - Extra Bacon, Cheese' 
+when c.pizza_id=1 and exclusions like '4' and extras like '1, 5' then 'Meat Lovers - Exclude Cheese - Extras Bacon, Chicken' 
+when c.pizza_id=1 and extras like '1' then 'Meat Lovers - Extra Bacon' 
+when c.pizza_id=1 and exclusions like '4' then 'Meat Lovers - Exclude Cheese' 
+when c.pizza_id=1 then 'Meat Lovers'
+when c.pizza_id=2 and extras like '1' then 'Veg Lovers - Extra Bacon' 
+when c.pizza_id=2 and exclusions like '4' then 'Veg Lovers - Exclude Cheese'
+when c.pizza_id=2 then 'Veg Lovers' end)
+from customer_orders c join pizza_names pn on c.pizza_id=pn.pizza_id;
+
+--Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
+
+with unique_customer_orders as(
+	select distinct order_id,pizza_id 
+  	from customer_orders),
+    
+base as(
+  select c.order_id,
+  c.pizza_id,
+  prn.toppings as topping_id 
+  from unique_customer_orders c join pizza_recipes_normalized prn on c.pizza_id=prn.pizza_id),
+ 
+ -- base - exclusions i.e if we join where exclusion is null then we lose access to exclusions is something and that's what we want. 
+ filtered_base as(
+ select b.* 
+   from base b left join order_exclusions oe on b.order_id=oe.order_id 
+   and b.topping_id=oe.exclusions 
+   where oe.exclusions is null),
+  
+extras as (select ox.order_id,
+  c.pizza_id, 
+  ox.extras as topping_id 
+        from order_extras ox join customer_orders c on ox.order_id=c.order_id),
+        
+combined as(
+select * from filtered_base 
+union all 
+select * from extras),
+
+counted as (
+    select
+        c.order_id,
+        c.pizza_id,
+        c.topping_id,
+        count(*) as qty
+    from combined c
+    group by c.order_id, c.pizza_id, c.topping_id
+)
+
+select
+    ct.order_id,
+    ct.pizza_id,
+    string_agg(
+        case 
+            when ct.qty > 1 
+                then CONCAT(ct.qty, 'x', pt.topping_name)
+            else pt.topping_name
+        end,
+        ', ' order by pt.topping_name
+    ) as ingredient_list
+from counted ct
+join pizza_toppings pt
+    on ct.topping_id = pt.topping_id
+group by ct.order_id, ct.pizza_id
+order by ct.order_id;
+
+
+--What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+-- list of toppings actually used in orders
+with base as (
+    select c.order_id,
+           prn.toppings as topping_id
+    from customer_orders_normalized c
+    join pizza_recipes_normalized prn
+      on c.pizza_id = prn.pizza_id
+),
+
+filtered_base as (
+    -- Remove excluded toppings
+    select b.*
+    from base b
+    left join order_exclusions oe
+      on b.order_id = oe.order_id
+     and b.topping_id = oe.exclusions
+    where oe.exclusions is null
+),
+
+all_toppings as (
+    -- Add extras
+    select topping_id
+    from filtered_base
+    union all
+    select ox.extras as topping_id
+    from order_extras ox
+)
+
+-- Count total quantity of each topping
+select pt.topping_name,
+       count(*) as total_quantity
+from all_toppings at
+join pizza_toppings pt
+  on at.topping_id = pt.topping_id
+group by pt.topping_name
+order by total_quantity desc;
