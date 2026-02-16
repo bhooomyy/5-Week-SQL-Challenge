@@ -179,4 +179,59 @@ when c.pizza_id=2 and exclusions like '4' then 'Veg Lovers - Exclude Cheese'
 when c.pizza_id=2 then 'Veg Lovers' end)
 from customer_orders c join pizza_names pn on c.pizza_id=pn.pizza_id;
 
+--Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
+
+with unique_customer_orders as(
+	select distinct order_id,pizza_id 
+  	from customer_orders),
+    
+base as(
+  select c.order_id,
+  c.pizza_id,
+  prn.toppings as topping_id 
+  from unique_customer_orders c join pizza_recipes_normalized prn on c.pizza_id=prn.pizza_id),
+ 
+ -- base - exclusions i.e if we join where exclusion is null then we lose access to exclusions is something and that's what we want. 
+ filtered_base as(
+ select b.* 
+   from base b left join order_exclusions oe on b.order_id=oe.order_id 
+   and b.topping_id=oe.exclusions 
+   where oe.exclusions is null),
+  
+extras as (select ox.order_id,
+  c.pizza_id, 
+  ox.extras as topping_id 
+        from order_extras ox join customer_orders c on ox.order_id=c.order_id),
+        
+combined as(
+select * from filtered_base 
+union all 
+select * from extras),
+
+counted as (
+    select
+        c.order_id,
+        c.pizza_id,
+        c.topping_id,
+        count(*) as qty
+    from combined c
+    group by c.order_id, c.pizza_id, c.topping_id
+)
+
+select
+    ct.order_id,
+    ct.pizza_id,
+    string_agg(
+        case 
+            when ct.qty > 1 
+                then CONCAT(ct.qty, 'x', pt.topping_name)
+            else pt.topping_name
+        end,
+        ', ' order by pt.topping_name
+    ) as ingredient_list
+from counted ct
+join pizza_toppings pt
+    on ct.topping_id = pt.topping_id
+group by ct.order_id, ct.pizza_id
+order by ct.order_id;
 
