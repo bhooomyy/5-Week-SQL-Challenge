@@ -94,4 +94,17 @@ count(*)
 from subscriptions 
 where plan_id=3 and extract(year from start_date)=2020;
 
+--9. How many days on average does it take for a customer to an annual plan from the day they join Foodie-Fi?
+with trial_plan as(
+  select * 
+  from subscriptions 
+  where plan_id=0),
+annual_plan as (
+  select *
+  from subscriptions 
+  where plan_id=3)
+  
+select 
+round(avg(a.start_date-t.start_date)) as avg_days_to_upgrade 
+from trial_plan t join annual_plan a on t.customer_id=a.customer_id;
 
