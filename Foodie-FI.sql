@@ -40,3 +40,14 @@ round((100.0*count(distinct customer_id))/(select count(distinct customer_id) fr
 from subscriptions 
 where plan_id=4;
 
+--5. How many customers have churned straight after their initial free trial - what percentage is this rounded to the nearest whole number?
+with trial_to_churn as(
+select 
+s1.customer_id 
+from subscriptions s1 join subscriptions s2 on s1.customer_id=s2.customer_id
+where s1.plan_id=0 and s2.plan_id=4 and s2.start_date-s1.start_date<=7)
+
+select 
+count(distinct customer_id) as churn_after_trial,
+round((100.0*count(distinct customer_id))/(select count(distinct customer_id) from subscriptions)) as churn_percentage 
+from trial_to_churn;
