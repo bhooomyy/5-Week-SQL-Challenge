@@ -108,3 +108,25 @@ select
 round(avg(a.start_date-t.start_date)) as avg_days_to_upgrade 
 from trial_plan t join annual_plan a on t.customer_id=a.customer_id;
 
+
+--10. Can you further breakdown this average value into 30 day periods (i.e. 0-30 days, 31-60 days etc)
+with trial_plan as(
+  select * 
+  from subscriptions 
+  where plan_id=0),
+  
+annual_plan as (
+  select *
+  from subscriptions 
+  where plan_id=3),
+  
+bins as(
+  select width_bucket((a.start_date-t.start_date),0,365,12) as avg_days_to_upgrade 
+  from trial_plan t join annual_plan a on t.customer_id=a.customer_id)
+  
+  select 
+  ((avg_days_to_upgrade-1)*30) ||' - '|| (avg_days_to_upgrade*30) || ' days' as bucket,
+  count(*) as num_of_customers 
+  from bins
+  group by avg_days_to_upgrade
+  order by avg_days_to_upgrade;
