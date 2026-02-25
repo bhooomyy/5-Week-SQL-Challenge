@@ -33,3 +33,32 @@ table2 as(select
           group by customer_id,node_id)
      
 select round(avg(sum_total)) as avg_node_reallocation_days from table2;
+
+--5. What is the median, 80th and 95th percentile for this same reallocation days metric for each region?
+with base as (
+    select
+        r.region_name,
+        (c.end_date - c.start_date) as reallocation_days
+    from customer_nodes c
+    join regions r
+        on c.region_id = r.region_id
+    where c.end_date <> '9999-12-31'
+)
+
+select
+    region_name,
+    round(
+        percentile_cont(0.5) 
+        within group (order by reallocation_days)
+    ) as median_days,
+    round(
+        percentile_cont(0.8) 
+        within group (order by reallocation_days)
+    ) as p80_days,
+    round(
+        percentile_cont(0.95) 
+        within group (order by reallocation_days)
+    ) as p95_days
+from base
+group by region_name
+order by region_name;
