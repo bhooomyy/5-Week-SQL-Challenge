@@ -22,3 +22,14 @@ add column month_number integer;
 
 update weekly_sales
 set month_number=extract(month from week_date);
+
+
+-- Add a calendar_year column as the 4th column containing either 2018, 2019 or 2020 values
+alter table weekly_sales
+add column cal_year integer;
+
+update weekly_sales
+set cal_year=extract(year from week_date);
+-- Add a new column called age_band after the original segment column using the following mapping on the number inside the segment value
+alter table weekly_sales
+add column age_band varchar(12);
