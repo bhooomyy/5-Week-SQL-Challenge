@@ -96,3 +96,31 @@ select region,month_number,cal_year,sum(sales) as total_sales from clean_weekly_
 
 -- 5.What is the total count of transactions for each platform?
 select platform,sum(transactions) as total_transactions_per_platform from clean_weekly_sales group by platform;
+
+--What is the percentage of sales for Retail vs Shopify for each month?
+with monthly_sales as (
+    select 
+        cal_year,
+        month_number,
+        platform,
+        sum(sales) as platform_sales
+    from clean_weekly_sales
+    group by cal_year, month_number, platform
+),
+total_monthly_sales as (
+    select
+        cal_year,
+        month_number,
+        sum(platform_sales) as total_sales
+    from monthly_sales
+    group by cal_year, month_number
+)
+select 
+    m.cal_year,
+    m.month_number,
+    m.platform,
+    round((m.platform_sales / t.total_sales) * 100, 2) as sales_percentage
+from monthly_sales m
+join total_monthly_sales t
+    on m.cal_year = t.cal_year and m.month_number = t.month_number
+order by cal_year, month_number, platform;
