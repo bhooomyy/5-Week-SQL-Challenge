@@ -83,3 +83,6 @@ from all_weeks w
 left join (select distinct week_number from weekly_sales order by 1 asc)t 
 on w.week_number=t.week_number 
 where t.week_number is null; 
+
+-- 3.How many total transactions were there for each year in the dataset?
+select cal_year,sum(transactions) from weekly_sales group by cal_year;
