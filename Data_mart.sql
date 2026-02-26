@@ -1,3 +1,4 @@
+-- Cleaning
 -- Convert the week_date to a DATE format
 alter table weekly_sales
 alter column week_date type VARCHAR(10);
@@ -66,3 +67,10 @@ add column avg_transaction float;
 update weekly_sales
 set avg_transaction=(case when transactions = 0 then null
         else round(sales::numeric / transactions, 2) end);
+
+
+
+-- Data Exploration
+-- 1.What day of the week is used for each week_date value?
+select week_date, extract(day from week_date) from weekly_sales;
+
