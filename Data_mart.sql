@@ -141,13 +141,28 @@ select
     (case 
       when demographic = 'Couples' then yearly_sales else null end)
     / sum(yearly_sales),2) as couples_percentage,
-  ROUND(100 * max 
+  round(100 * max 
     (case 
       when demographic = 'Families' then yearly_sales else null end)
     / sum(yearly_sales),2) as families_percentage,
-  ROUND(100 * max 
+  round(100 * max 
     (case 
       when demographic = 'unknown' then yearly_sales else null end)
     / sum(yearly_sales),2) as unknown_percentage
 from demographic_sales
 group by calendar_year;
+
+
+--Which age_band and demographic values contribute the most to Retail sales?
+select 
+  age_band, 
+  demographic, 
+  sum(sales) as retail_sales,
+  round(100 * 
+    sum(sales)::numeric 
+    / sum(sum(sales)) over (),
+  1) as contribution_percentage
+from clean_weekly_sales
+where platform = 'Retail'
+group by age_band, demographic
+order by retail_sales desc;
